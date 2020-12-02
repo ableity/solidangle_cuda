@@ -1,9 +1,9 @@
 /*
-»ùÓÚÃÏ·²ÕäÊ¦½ãµÄmatlab´´½¨Á¢Ìå½ÇÏµÍ³¾ØÕó³ÌĞò
+åŸºäºå­Ÿå‡¡çå¸ˆå§çš„matlabåˆ›å»ºç«‹ä½“è§’ç³»ç»ŸçŸ©é˜µç¨‹åº
 v 1.0 
-²»Ê¹ÓÃcuda£¬c´úÂë°æ
-×¢ÒâmatlabÊı×é´Ó1¿ªÊ¼¶øc´Ó0¿ªÊ¼
-by ÀîÀÙ
+ä¸ä½¿ç”¨cudaï¼Œcä»£ç ç‰ˆ
+æ³¨æ„matlabæ•°ç»„ä»1å¼€å§‹è€Œcä»0å¼€å§‹
+by æè•¾
 */
 #include <iostream>  
 #include <string>
@@ -47,7 +47,7 @@ void showarray(double *a,int n)
 	}
 }
 
-__global__ void initvalue(double *a, int n, double value)
+__global__ void initsinglevalue(double *a, int n, double value)
 {
 	int i = blockDim.x * blockIdx.x + threadIdx.x;
 	int tid = blockDim.x * gridDim.x;
@@ -57,17 +57,39 @@ __global__ void initvalue(double *a, int n, double value)
 		i += tid;
 	}
 }
-
-
-double* init_big_array(int num, double value)
+double* init_array_single_value(int num, double value)
 {
 	double *in;
-	//´óÊı×é³õÊ¼»¯£¬²ÉÓÃcuda
+	//å¤§æ•°ç»„åˆå§‹åŒ–ï¼Œé‡‡ç”¨cuda
 	in = (double*)malloc(num*sizeof(double));
 	double *in_cuda;
 	HANDLE_ERROR(cudaMalloc((void**)&in_cuda, num*sizeof(double)));
-	initvalue << <1000, 1000 >> >(in_cuda, num, value);
+	initsinglevalue << <1000, 1000 >> >(in_cuda, num, value);
 	HANDLE_ERROR(cudaMemcpy(in, in_cuda, num*sizeof(double), cudaMemcpyDeviceToHost));
+	cudaFree(in_cuda);
+	return in;
+}
+
+__global__ void initmanyvalue(double *a, int n, double begin, double diff)
+{
+	int i = blockDim.x * blockIdx.x + threadIdx.x;
+	int tid = blockDim.x * gridDim.x;
+	while (i < n)
+	{
+		a[i] = begin + i * diff;
+		i += tid;
+	}
+}
+double* init_array_many_value(int num, double begin,double diff)
+{
+	double *in;
+	//ç­‰å·®æ•°åˆ—åˆå§‹åŒ–ï¼Œé‡‡ç”¨cuda
+	in = (double*)malloc(num*sizeof(double));
+	double *in_cuda;
+	HANDLE_ERROR(cudaMalloc((void**)&in_cuda, num*sizeof(double)));
+	initmanyvalue << <1000, 1000 >> >(in_cuda,num,begin,diff);
+	HANDLE_ERROR(cudaMemcpy(in, in_cuda, num*sizeof(double), cudaMemcpyDeviceToHost));
+	cudaFree(in_cuda);
 	return in;
 }
 
@@ -83,65 +105,48 @@ double sum_array(double *a, int n, int m)
 
 int main()
 {
-	//¾§ÌåÊıÁ¿
+	//æ™¶ä½“æ•°é‡
 	const int CryNumY = 77, CryNumZ = 104;
-	//¾§Ìå³ß´ç
+	//æ™¶ä½“å°ºå¯¸
 	const int CrySize[3] = {26,4,4}; 
-	//YÖá¾§ÌåÖĞĞÄ
-	double CryCoorY[CryNumY];
-	for (int i = 0; i < CryNumY; i++)
-	{
-		//¸³Öµ£¬cuda ÒÑÑéÖ¤
-		CryCoorY[i] = -(double)CryNumY*(double)CrySize[1] / 2 + (double)CrySize[1]/2+(double)i*(double)CrySize[1];
-	}
-	double CryCoorZ[CryNumZ];
-	for (int i = 0; i < CryNumZ; i++)
-	{
-		//¸³Öµ£¬cuda ÒÑÑéÖ¤
-		CryCoorZ[i] = -(double)CryNumZ*(double)CrySize[2] / 2 + (double)CrySize[2]/2+(double)i*(double)CrySize[2];
-	}
+	//Yè½´æ™¶ä½“ä¸­å¿ƒ
+	double *CryCoorY = init_array_many_value(CryNumY, -(double)CryNumY*(double)CrySize[1] / 2 + (double)CrySize[1] / 2, (double)CrySize[1]);
+	double *CryCoorZ = init_array_many_value(CryNumZ, -(double)CryNumZ*(double)CrySize[2] / 2 + (double)CrySize[2] / 2, (double)CrySize[2]);
 
 	//showarray(CryCoorZ,104);
-	//Ã¿¸öÌ½²âÆ÷µÄ¾§ÌåÊı
+	//æ¯ä¸ªæ¢æµ‹å™¨çš„æ™¶ä½“æ•°
 	const int CryNumPerHead = CryNumY * CryNumZ;
-	//Á½¸öÌ½²âÆ÷µÄ¾àÀë
+	//ä¸¤ä¸ªæ¢æµ‹å™¨çš„è·ç¦»
 	const double Dis = 240;
-	//LOR×ÜÊı
+	//LORæ€»æ•°
 	const int LORNum = CryNumY*CryNumY * CryNumZ*CryNumZ;
 	const int VoxNumX = 240, VoxNumY = 308, VoxNumZ = 416;
 	const int VoxNumYZ = VoxNumY * VoxNumZ;
 	const int VoxSize = 1;
-	double VoxCoorX[VoxNumX],VoxCoorY[VoxNumY],VoxCoorZ[VoxNumZ];
-	for (int i = 0; i < VoxNumX; i++)
-	{
-		//cuda ÒÑÑéÖ¤
-		VoxCoorX[i] = -(double)VoxNumX*(double)VoxSize / 2 + (double)VoxSize / 2 + (double)i*(double)VoxSize;
-	}
-	for (int i = 0; i < VoxNumY; i++)
-	{
-		VoxCoorY[i] = -(double)VoxNumY*(double)VoxSize / 2 + (double)VoxSize / 2 + (double)i*(double)VoxSize;
-	}
-	for (int i = 0; i < VoxNumZ; i++)
-	{
-		VoxCoorZ[i] = -(double)VoxNumZ*(double)VoxSize / 2 + (double)VoxSize / 2 + (double)i*(double)VoxSize;
-	}
+
+	double *VoxCoorX = init_array_many_value(VoxNumX, -(double)VoxNumX*(double)VoxSize / 2 + (double)VoxSize / 2, (double)VoxSize);
+	double *VoxCoorY = init_array_many_value(VoxNumY, -(double)VoxNumY*(double)VoxSize / 2 + (double)VoxSize / 2, (double)VoxSize);
+	double *VoxCoorZ = init_array_many_value(VoxNumZ, -(double)VoxNumZ*(double)VoxSize / 2 + (double)VoxSize / 2, (double)VoxSize);
+
+
+
 
 	double gap = 0.22;
 	const int VoxNum = VoxNumYZ*VoxNumX;
 
 	double nonzero_ratio[13]={0.0823, 0.1036, 0.1015, 0.0971, 0.0914, 0.0854, 0.0794, 0.0736, 0.0680, 0.0627, 0.0575, 0.0522, 0.0453 };
 	double theta = 1;
+	
 
-
-	//cuda ÒÑÑéÖ¤¸³Öµ
+	//cuda å·²éªŒè¯èµ‹å€¼
 	double DeltaWeight[4] = { nonzero_ratio[0], sum_array(nonzero_ratio, 1, 2), sum_array(nonzero_ratio, 4, 6), sum_array(nonzero_ratio, 7, 12) };
 	double DeepLen[4] = { 0, 2, 6, 14 };
 
 	double offAbandon = 0;
 	double Start = 0;
 
-	//¶¨Òå¼°³õÊ¼»¯
-	double *norm = init_big_array(LORNum, 0);
+	//å®šä¹‰åŠåˆå§‹åŒ–
+	double *norm = init_array_single_value(LORNum, 0);
 
 	double u_LYSO = 0.087;
 	double coeff = 1;
@@ -150,12 +155,19 @@ int main()
 	int LORj = 1;
 
 
-	//MATLAB´Ó1¿ªÊ¼£¬ÎªÁË³ÌĞòËùÓĞµØ·½µÄÊı×éÒıÓÃ¶¼¼õÒ»£¬ÕâÀï´Ó1¿ªÊ¼£¨ÓĞµÄµØ·½¼õÓĞµÄ²»¼õ²»ÈİÒ×¼ì²é£©
+	//MATLABä»1å¼€å§‹ï¼Œä¸ºäº†ç¨‹åºæ‰€æœ‰åœ°æ–¹çš„æ•°ç»„å¼•ç”¨éƒ½å‡ä¸€ï¼Œè¿™é‡Œä»1å¼€å§‹ï¼ˆæœ‰çš„åœ°æ–¹å‡æœ‰çš„ä¸å‡ä¸å®¹æ˜“æ£€æŸ¥ï¼‰
 	for (int LORm = 1; LORm <= CryNumZ; LORm++)
 	{
 		for (int LORn = 1; LORn <= CryNumY; LORn++)
 		{
+			double *P = init_array_single_value(VoxNum,0);
+			double *tmp = init_array_single_value(VoxNum, 0);
+			double *Solid = init_array_single_value(VoxNum, 0);
 
+
+			free(P);
+			free(tmp);
+			free(Solid);
 		}
 	}
 
