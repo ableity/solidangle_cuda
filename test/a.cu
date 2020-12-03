@@ -27,7 +27,7 @@ void showarray(double *a, int n)
 				printf(",");
 			printf("%.4f", a[i]);
 		}
-		printf("]");
+		printf("]\n");
 	}
 	else
 	{
@@ -177,6 +177,163 @@ double* findCen(double *point,double *LORUp, double kx,double ky, double kz,cons
 	return centerPoint;
 }
 
+double SolidAngle3D5(double *centerPoint, double *LORUp, double kx, double ky, double kz, const int *CrySize, double angleY, double angleZ, double Dis, double lenLOR, double OffsetUP)
+{
+	double tUp = (centerPoint[1 - 1] - Dis / 2 - OffsetUP) / kx;
+	double YUp = centerPoint[2 - 1] - ky*tUp;
+	double ZUp = centerPoint[3 - 1] - kz * tUp;
+
+	double lenPtoUp = sqrt(pow((centerPoint[1-1]-Dis/2-OffsetUP),2) + pow(centerPoint[2-1]-YUp,2) + pow(centerPoint[3-1]-ZUp,2));
+
+	double lenYSide = abs(LORUp[2 - 1] + CrySize[2 - 1] / 2 - YUp);
+	double lenZSide = abs(LORUp[3 - 1] + CrySize[3 - 1] / 2 - ZUp);
+
+	double RY = lenYSide * sin(angleY);
+	double RZ = lenZSide * sin(angleZ);
+
+	double lenProY = CrySize[2 - 1] * sin(angleY);
+	double lenProZ = CrySize[3 - 1] * sin(angleZ);
+
+	RY = min(RY, lenProY - RY);
+	RZ = min(RZ, lenProZ - RZ);
+
+	double LY = lenPtoUp - (lenYSide)*cos(angleY);
+	double LZ = lenPtoUp - (lenZSide)*cos(angleZ);
+
+	double tmpY = (CrySize[2 - 1] - lenYSide) * cos(angleY);
+	double tmpZ = (CrySize[3 - 1] - lenZSide) * cos(angleZ);
+
+	double thetaY;
+	double thetaZ;
+	if (LY > 0 && LZ > 0)
+	{
+		double LY1 = lenLOR - lenPtoUp - tmpY;
+		double LZ1 = lenLOR - lenPtoUp - tmpZ;
+		if (LY1 > 0 && LZ1 > 0)
+		{
+			thetaY = atan(RY / LY) + atan(RY / LY1);
+			thetaZ = atan(RZ / LZ) + atan(RZ / LZ1);
+
+			double maxLY = max(LY, LY1);
+			thetaY = min(atan(lenProY / maxLY), thetaZ);
+			double maxLZ = max(LZ, LZ1);
+			thetaZ = min(atan(lenProZ / maxLZ), thetaZ);
+		}
+		else if (LY1 <= 0 && LZ1 <= 0)
+		{
+			thetaY = atan(lenProY / LY);
+			thetaZ = atan(lenProZ / LZ);
+			
+		}
+		else if (LY1 > 0 && LZ1 <= 0)
+		{
+			thetaY = atan(RY / LY) + atan(RY / LY1); 
+			thetaZ = atan(lenProZ / LZ);
+
+			double maxLY = max(LY, LY1);
+			double thetaY = min(atan(lenProY / maxLY), thetaY);
+		}
+		else if (LY1 <= 0 && LZ1 > 0)
+		{
+			thetaY = atan(lenProY / LY);
+			thetaZ = atan(RZ / LZ) + atan(RZ / LZ1);
+			double maxLZ = max(LZ, LZ1);
+			thetaZ = min(atan(lenProZ / maxLZ), thetaZ);
+		}
+	}
+	else if (LY <= 0 && LZ <= 0)
+	{
+		thetaY = atan(lenProY / (lenLOR - tmpY - lenPtoUp));
+		thetaZ = atan(lenProZ / (lenLOR - tmpZ - lenPtoUp));
+	}
+	else if (LY > 0 && LZ <= 0)
+	{
+		double LY1 = lenLOR - lenPtoUp - tmpY;
+		if (LY1 > 0)
+		{
+			thetaY = atan(RY / LY) + atan(RY / LY1);
+			double maxLY = max(LY, LY1);
+			thetaY = min(atan(lenProY / maxLY), thetaY);
+		}
+		else
+		{
+			thetaY = atan(lenProY / LY);
+		}
+		thetaZ = atan(lenProZ / (lenLOR - tmpZ - lenPtoUp));
+	}
+	else if (LY <= 0 && LZ > 0)
+	{
+		double LZ1 = lenLOR - lenPtoUp - tmpZ;
+		if (LZ1 > 0)
+		{
+			thetaZ = atan(RZ / LZ) + atan(RZ / LZ1);
+			double maxLZ = max(LZ, LZ1);
+			thetaZ = min(atan(lenProZ / maxLZ), thetaZ);
+		}
+		else
+		{
+			thetaZ = atan(lenProY / (lenLOR - tmpY - lenPtoUp));
+		}
+	}
+
+	double theta1 = thetaY * thetaZ / (2 * 3.1415926);
+	double sliceeff = 1;
+	double theta = theta1 * sliceeff;
+	return theta;
+
+}
+
+
+double * arraymult(double *array, double k, int n)
+{
+	double *out;
+	out = (double*)malloc(n*sizeof(double));
+	//数组乘法
+	for (int i = 0; i < n; i++)
+	{
+		out[i] = k*array[i];
+	}
+	return out;
+}
+
+double * arrayadd(double *array, double k, int n)
+{
+	double *out;
+	out = (double*)malloc(n*sizeof(double));
+	//数组减法
+	for (int i = 0; i < n; i++)
+	{
+		out[i] = array[i] + k;
+	}
+	return out;
+}
+
+int find_value_in_matrix(double *in, double min, double max, const int n)
+{
+	//在原矩阵中返回介于min和max之间的值，其它在尾部置0
+	//如{1,2,3,4,5} min=1.5,max=4.5,则{2,3,4...}返回3 
+	int index = 0;
+	for (int i = 0; i < n; i++)
+	{
+		if (in[i]>min && in[i] < max)
+		{
+			in[index] = in[i];
+			index++;
+		}
+	}
+	return index;
+
+
+}
+
+__global__ void find_interesect_index_and_sort(double *in1,double*in2,int n1,int n2,int *out)
+{
+	//找出对应的下标的交集并排序
+	//其实不用排序，下标肯定是排好序的
+	
+
+}
+
 int main()
 {
 	//晶体数量
@@ -240,8 +397,9 @@ int main()
 			
 			for (int IndDoiUp = (Start + 1) ; IndDoiUp <= sizeof(DeepLen) / sizeof(double) - OffAbandon ; IndDoiUp++)
 			{
+
 				double weightup = DeltaWeight[IndDoiUp - 1];
-				for (int IndDoiDown = (Start + 1); IndDoiDown <= sizeof(DeepLen) / sizeof(double) - OffAbandon; IndDoiUp++)
+				for (int IndDoiDown = (Start + 1); IndDoiDown <= sizeof(DeepLen) / sizeof(double) - OffAbandon; IndDoiDown++)
 				{
 					double weightdown = DeltaWeight[IndDoiDown];
 
@@ -250,6 +408,9 @@ int main()
 
 					double LORUp[3] = { Dis/2+DeepLen[IndDoiUp-1], CryCoorY[LORj-1], CryCoorZ[LORi-1] };
 					double LORDown[3] = {-Dis/2-DeepLen[IndDoiDown-1], CryCoorY[LORn-1],CryCoorZ[LORm-1] };
+
+					double LORUpLD[3] = { Dis / 2 + DeepLen[IndDoiUp - 1], CryCoorY[LORj - 1] - CrySize[2 - 1] / 2 + (double)VoxSize / 2, CryCoorZ[LORi - 1] - CrySize[2 - 1] / 2 + (double)VoxSize / 2 };
+					double LORDownLD[3] = { -Dis / 2 - DeepLen[IndDoiDown - 1], CryCoorY[LORn - 1] - CrySize[2 - 1] / 2 + (double)VoxSize / 2, CryCoorZ[LORm - 1] - CrySize[2 - 1] / 2 + (double)VoxSize / 2 };
 
 					double kx = LORDown[1 - 1] - LORUp[1 - 1];
 					double ky = LORDown[2 - 1] - LORUp[2 - 1];
@@ -288,12 +449,51 @@ int main()
 									double point[3] = {VoxCoorX[tmpXi-1],VoxCoorY[IndexVoxY+Voxj-1-1],VoxCoorZ[IndexVoxZ+Voxi-1-1]};
 
 									double *centerPoint=findCen(point,LORUp,kx,ky,kz,CrySize,VoxSize,Dis,OffsetUP);
-							
+									double theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY,angleZ,Dis,lenLOR, OffsetUP);
 
 								}
 							}
 							
 						}
+
+
+					}
+					else if (ky != 0 || kz != 0)
+					{
+						double *X;
+						X = (double*)malloc(sizeof(double)*VoxNumX);
+						memcpy(X, VoxCoorX, VoxNumX*sizeof(double));
+
+						double *t, *temp_x;
+						temp_x = arrayadd(X, -LORUpLD[1-1],VoxNumX);
+						t = arraymult(temp_x, 1 / kx, VoxNumX);
+						free(temp_x);
+
+						double *Y, *temp_y;
+						temp_y = arraymult(t, ky, VoxNumX);
+						Y = arrayadd(temp_y, LORUpLD[2 - 1], VoxNumX);
+						free(temp_y);
+
+						double *Z, *temp_z;
+						temp_z = arraymult(t, kz, VoxNumX);
+						Z = arrayadd(temp_z, LORUpLD[3 - 1], VoxNumX);
+						free(temp_z);
+
+						//这一步和matlab不一样，这一步后的YZ不会改变长度，而是输出len_Y、Z来表示他们的有效程度
+						int len_Y = find_value_in_matrix(Y, VoxCoorY[1 - 1] - (double)VoxSize / 2, VoxCoorY[VoxNumY - 1] + (double)VoxSize / 2,VoxNumX);
+						int len_Z = find_value_in_matrix(Z, VoxCoorZ[1 - 1] - (double)VoxSize / 2, VoxCoorZ[VoxNumZ - 1] + (double)VoxSize / 2, VoxNumX);
+						
+						if (len_Y > 0 && len_Z > 0)
+						{
+
+						}
+
+
+						system("pause");
+
+
+
+						free(X);
 
 					}
 
