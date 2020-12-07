@@ -323,16 +323,52 @@ int find_value_in_matrix(double *in, double min, double max, const int n)
 	}
 	return index;
 
-
 }
 
-__global__ void find_interesect_index_and_sort(double *in1,double*in2,int n1,int n2,int *out)
+
+
+//__global__ void find_interesect_index_and_sort2(double in1, double*in2, int n2, int *out)
+//{
+//	int index = blockDim.x * blockIdx.x + threadIdx.x;
+//	int tid = blockDim.x * gridDim.x;
+//
+//	while (index < n2)
+//	{
+//		out[index] = 0;
+//		//printf("in1:%f\nin2[%d]:%f\n",in1,tid,in2[index]);
+//		if (in1 == in2[index])
+//		{
+//			out[index] = 1 ;
+//		}
+//		index += tid;
+//	}
+//}
+
+__global__ void find_interesect_index_and_sort(double *in1,double*in2,int n1,int n2,double min1,double max1,double min2,double max2, int *out)
 {
 	//找出对应的下标的交集并排序
 	//其实不用排序，下标肯定是排好序的
-	
+	//本函数会二次启动核函数，注意内存
+	int index = blockDim.x * blockIdx.x + threadIdx.x;
+	int index2 = blockDim.x * blockIdx.x + threadIdx.x;
+	int tid = blockDim.x * gridDim.x;
+	while (n2 > index2)
+	{
+		out[index2] = 0;
+		index2 += tid;
+	}
+	while (n1 > index && n2> index)
+	{
+		if (in1[index] > min1 && in1[index] < max1 && in2[index] > min2 && in2[index] < max2)
+		{
+			out[index] = 1;
+		}
+		index += tid;
+	}
 
 }
+
+
 
 int main()
 {
@@ -480,16 +516,38 @@ int main()
 						free(temp_z);
 
 						//这一步和matlab不一样，这一步后的YZ不会改变长度，而是输出len_Y、Z来表示他们的有效程度
+						//注意YZ已经改变
 						int len_Y = find_value_in_matrix(Y, VoxCoorY[1 - 1] - (double)VoxSize / 2, VoxCoorY[VoxNumY - 1] + (double)VoxSize / 2,VoxNumX);
 						int len_Z = find_value_in_matrix(Z, VoxCoorZ[1 - 1] - (double)VoxSize / 2, VoxCoorZ[VoxNumZ - 1] + (double)VoxSize / 2, VoxNumX);
 						
 						if (len_Y > 0 && len_Z > 0)
 						{
+							double *Y_cuda, *Z_cuda;
+							int *YZindex_cuda,*YZindex;
+							cudaMalloc((void**)&Y_cuda, len_Y*sizeof(double));
+							cudaMalloc((void**)&Z_cuda, len_Z*sizeof(double));
+							cudaMalloc((void**)&YZindex_cuda, len_Z*sizeof(int));
+							cudaMemcpy(Y_cuda, Y, len_Y*sizeof(double),cudaMemcpyHostToDevice);
+							cudaMemcpy(Z_cuda, Z, len_Z*sizeof(double), cudaMemcpyHostToDevice);
+							find_interesect_index_and_sort << <10, 24 >> >(Y_cuda, Z_cuda, len_Y, len_Z, \
+								            VoxCoorY[1 - 1] - (double)VoxSize / 2, VoxCoorY[VoxNumY - 1] + (double)VoxSize / 2, \
+											VoxCoorZ[1 - 1] - (double)VoxSize / 2, VoxCoorZ[VoxNumZ - 1] + (double)VoxSize / 2, YZindex_cuda);
+							YZindex = (int *)malloc(len_Z*sizeof(int));
+
+							cudaMemcpy(YZindex, YZindex_cuda, len_Z * sizeof(int), cudaMemcpyDeviceToHost);
+							
+
+
+
+							cudaFree(Y_cuda);
+							cudaFree(Z_cuda);
+							cudaFree(YZindex_cuda);
+
+							system("pause");
 
 						}
 
 
-						system("pause");
 
 
 
