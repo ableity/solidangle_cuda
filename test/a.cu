@@ -368,6 +368,12 @@ __global__ void find_interesect_index_and_sort(double *in1,double*in2,int n1,int
 
 }
 
+double mod(double a, double b)
+{
+	double c = a / b;
+	return a - floor(c)*b;
+}
+
 
 
 int main()
@@ -533,23 +539,150 @@ int main()
 								            VoxCoorY[1 - 1] - (double)VoxSize / 2, VoxCoorY[VoxNumY - 1] + (double)VoxSize / 2, \
 											VoxCoorZ[1 - 1] - (double)VoxSize / 2, VoxCoorZ[VoxNumZ - 1] + (double)VoxSize / 2, YZindex_cuda);
 							YZindex = (int *)malloc(len_Z*sizeof(int));
-
+							//YZindex和matlab版不同，matlab版的是存的index，这里是index位置为1
 							cudaMemcpy(YZindex, YZindex_cuda, len_Z * sizeof(int), cudaMemcpyDeviceToHost);
 							
-
-
-
 							cudaFree(Y_cuda);
 							cudaFree(Z_cuda);
 							cudaFree(YZindex_cuda);
 
-							system("pause");
+							int len_X=0;
+							//下面循环是为了完成
+							//X = X(YZIndex);
+							//Y = Y(YZIndex);
+							//Z = Z(YZIndex);
+							//可以优化成一步
+							for (int i = 0; i < len_Z; i++)
+							{
+								if (YZindex[i] == 1)
+								{
+									X[len_X] = X[i];
+									Y[len_X] = Y[i];
+									Z[len_X] = Z[i];
+									len_X += 1;
+								}
+
+							}
+							len_Y = len_X;
+							len_Z = len_X;
+							int *IndexInX, *IndexInY, *IndexInZ;
+							double *VarInY, *VarInZ;
+							double	*Index;
+
+							IndexInX = (int *)malloc(len_X*sizeof(int));
+							IndexInY = (int *)malloc(len_Y*sizeof(int));
+							IndexInZ = (int *)malloc(len_Z*sizeof(int));
+
+							VarInY = (double*)malloc(len_Y*sizeof(double));
+							VarInZ = (double*)malloc(len_Z*sizeof(double));
+
+							Index = (double*)malloc(len_Z*sizeof(double));
+							for (int i = 0; i < len_X; i++)
+							{
+
+								IndexInX[i] = ceil((X[i] - (VoxCoorX[1 - 1] - (double)VoxSize / 2)) / (double)VoxSize);
+								IndexInY[i] = ceil((Y[i] - (VoxCoorY[1 - 1] - (double)VoxSize / 2)) / (double)VoxSize);
+								IndexInZ[i] = ceil((Z[i] - (VoxCoorZ[1 - 1] - (double)VoxSize / 2)) / (double)VoxSize);
+								VarInY[i] = (double)VoxSize - mod(Y[i], (double)VoxSize);
+								VarInZ[i] = (double)VoxSize - mod(Z[i], (double)VoxSize);
+
+								Index[i] = IndexInX[i] + (IndexInY[i] - 1)*(double)VoxNumX + (IndexInZ[i] - 1)*(double)VoxNumX*(double)VoxNumY;
+							}
+
+							for (int slicei = 1; slicei <= VoxNumX; slicei++)
+							{
+								if (VarInY[slicei - 1] < 1 && VarInZ[slicei - 1] < 1)
+								{
+									for (int tmpi = 1; tmpi <= VoxNumPerCry + 1; tmpi++)
+									{
+										for (int tmpj = 1; tmpj <= VoxNumPerCry + 1; tmpj++)
+										{
+											int IndexTmp = Index[slicei - 1] + (tmpj - 1)*VoxNumX + (tmpi - 1)*VoxNumX*VoxNumY;
+											double point[3] = { VoxCoorX[slicei - 1], VoxCoorY[IndexInY[slicei - 1] + tmpi - 1 - 1], VoxCoorZ[IndexInZ[slicei - 1] + tmpj - 1 - 1] };
+											double *centerPoint = findCen(point, LORUp, kx, ky, kz, CrySize, VoxSize, Dis, OffsetUP);
+											theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY, angleZ, Dis, lenLOR, OffsetUP);
+											if ((tmpi != 1 || tmpi != VoxNumPerCry + 1) && (tmpj != 1 || tmpj != VoxNumPerCry + 1))
+											{
+												P[IndexTmp - 1] = theta;
+											}
+											else if (tmpi == 1 && (tmpj != 1 || tmpj != VoxNumPerCry + 1))
+											{
+												P[IndexTmp - 1] = theta;
+											}
+											else if (tmpi == VoxNumPerCry + 1 && (tmpj != 1 || tmpj != VoxNumPerCry + 1))
+											{
+												P[IndexTmp - 1] = theta;
+											}
+											else if ((tmpi != 1 || tmpi != VoxNumPerCry + 1) && tmpj == 1)
+											{
+												P[IndexTmp - 1] = theta;
+											}
+											else if ((tmpi != 1 || tmpi != VoxNumPerCry + 1) && tmpj == VoxNumPerCry + 1)
+											{
+												P[IndexTmp - 1] = theta;
+											}
+											else if (tmpi == 1 && tmpj == 1)
+											{
+												P[IndexTmp - 1] = theta;
+											}
+											else if (tmpi == 1 && tmpj == VoxNumPerCry + 1)
+											{
+												P[IndexTmp - 1] = theta;
+											}
+											else if (tmpi == 5 && tmpj == 1)
+											{
+												P[IndexTmp - 1] = theta;
+											}
+											else if (tmpi == 5 && tmpj == VoxNumPerCry + 1)
+											{
+												P[IndexTmp - 1] = theta;
+											}
+										}
+									}
+								}
+								else if (VarInY[slicei - 1] < 1 && VarInZ[slicei - 1] == 1)
+								{
+									for (int tmpi = 1; tmpi <= VoxNumPerCry; tmpi++)
+									{
+										for (int tmpj = 1; tmpj <= VoxNumPerCry + 1; tmpj++)
+										{
+											double IndexTmp = Index[slicei - 1] + (tmpj - 1)*VoxNumX + (tmpi - 1)*VoxNumX*VoxNumY;
+											double point[3] = { VoxCoorX[slicei - 1], VoxCoorY[IndexInY[slicei - 1] + tmpi - 1 - 1], VoxCoorZ[IndexInZ[slicei - 1] + tmpj - 1 - 1] };
+											double *centerPoint = findCen(point, LORUp, kx, ky, kz, CrySize, VoxSize, Dis, OffsetUP);
+											theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY, angleZ, Dis, lenLOR, OffsetUP);
+											
+											printf("IndexTmp=%f\n", IndexTmp);
+											printf("slicei=%d\n",slicei);
+											printf("tmpi=%d\n", tmpi);
+											printf("tmpj=%d\n", tmpj);
+											showarray(point,3);
+											showarray(centerPoint,3);
+											printf("LORUp=%f\n",LORUp);
+											printf("kx=%f\n", kx);
+											printf("ky=%f\n", ky);
+											printf("kz=%f\n", kz);
+											printf("angleY=%f\n", angleY);
+											printf("angleZ=%f\n", angleZ);
+											printf("lenLOR=%f\n", lenLOR);
+											printf("OffsetUP=%f\n", OffsetUP);
+											printf("theta = %f\n", theta);
+											system("pause");
+										}
+									}
+								}
+							}
+
+
+
+
+							free(IndexInX);
+							free(IndexInY);
+							free(IndexInZ);
+							free(VarInY);
+							free(VarInZ);
+							free(Index);
 
 						}
-
-
-
-
 
 						free(X);
 
