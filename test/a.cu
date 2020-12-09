@@ -788,6 +788,7 @@ int main()
 			weightValue = (double*)malloc(VoxNum*sizeof(double));
 			*nW = find_value_not_0_and_copy_it(tmp,voxelIndex,weightValue,VoxNum);
 
+			printf("nW = %d\n", *nW);
 			fwrite(nW, sizeof(INT32), 1, fod_nW);
 			fwrite(voxelIndex, sizeof(INT32), *nW, fod_voxelIndex);
 			fwrite(weightValue, sizeof(float), *nW, fod_weightValue);
