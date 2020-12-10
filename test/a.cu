@@ -66,7 +66,7 @@ double* init_array_single_value(int num, double value)
 	in = (double*)malloc(num*sizeof(double));
 	double *in_cuda;
 	HANDLE_ERROR(cudaMalloc((void**)&in_cuda, num*sizeof(double)));
-	initsinglevalue << <1000, 1000 >> >(in_cuda, num, value);
+	initsinglevalue << <100, 100 >> >(in_cuda, num, value);
 	HANDLE_ERROR(cudaMemcpy(in, in_cuda, num*sizeof(double), cudaMemcpyDeviceToHost));
 	cudaFree(in_cuda);
 	return in;
@@ -405,12 +405,13 @@ int  find_value_not_0_and_copy_it(double *tmp,double *voxelIndex,double *weightV
 int main()
 {
 	//晶体数量
-	const int CryNumY = 77, CryNumZ = 105;
+	const int CryNumY = 72, CryNumZ = 105;
 	//晶体尺寸
 	const int CrySize[3] = { 26, 4, 4 };
 	//Y轴晶体中心
 	double *CryCoorY = init_array_many_value(CryNumY, -(double)CryNumY*(double)CrySize[1] / 2 + (double)CrySize[1] / 2, (double)CrySize[1]);
 	double *CryCoorZ = init_array_many_value(CryNumZ, -(double)CryNumZ*(double)CrySize[2] / 2 + (double)CrySize[2] / 2, (double)CrySize[2]);
+
 
 	//showarray(CryCoorZ,104);
 	//每个探测器的晶体数
@@ -420,7 +421,7 @@ int main()
 	//LOR总数
 	const int LORNum = CryNumY*CryNumY * CryNumZ*CryNumZ;
 	const int VoxNumPerCry = 4;
-	const int VoxNumX = 240, VoxNumY = 308, VoxNumZ = 420;
+	const int VoxNumX = 240, VoxNumY = 288, VoxNumZ = 420;
 	const int VoxNumYZ = VoxNumY * VoxNumZ;
 	const int VoxSize = 1;
 
@@ -445,6 +446,7 @@ int main()
 
 	//cuda 已验证赋值
 	double DeltaWeight[4] = { nonzero_ratio[0], sum_array(nonzero_ratio, 1, 2), sum_array(nonzero_ratio, 4, 6), sum_array(nonzero_ratio, 7, 12) };
+
 	double DeepLen[4] = { 0, 2, 6, 14 };
 
 	double OffAbandon = 0;
@@ -469,13 +471,16 @@ int main()
 			double *tmp = init_array_single_value(VoxNum, 0);
 			double *Solid = init_array_single_value(VoxNum, 0);
 			
-			for (int IndDoiUp = (Start + 1) ; IndDoiUp <= sizeof(DeepLen) / sizeof(double) - OffAbandon ; IndDoiUp++)
+			for (int IndDoiUp = (Start + 1) ; IndDoiUp <= 4 - OffAbandon ; IndDoiUp++)
 			{
 
 				double weightup = DeltaWeight[IndDoiUp - 1];
-				for (int IndDoiDown = (Start + 1); IndDoiDown <= sizeof(DeepLen) / sizeof(double) - OffAbandon; IndDoiDown++)
+				for (int IndDoiDown = (Start + 1); IndDoiDown <= 4 - OffAbandon; IndDoiDown++)
 				{
-					double weightdown = DeltaWeight[IndDoiDown];
+					//printf("InDoiDown=%d\n", IndDoiDown);
+					double weightdown = DeltaWeight[IndDoiDown-1];
+					//printf("weightdown = %f\n", weightdown);
+					//system("pause");
 
 					double OffsetUP = DeepLen[IndDoiUp-1];
 					double OffsetDown = DeepLen[IndDoiDown - 1];
@@ -483,8 +488,8 @@ int main()
 					double LORUp[3] = { Dis/2+DeepLen[IndDoiUp-1], CryCoorY[LORj-1], CryCoorZ[LORi-1] };
 					double LORDown[3] = {-Dis/2-DeepLen[IndDoiDown-1], CryCoorY[LORn-1],CryCoorZ[LORm-1] };
 
-					double LORUpLD[3] = { Dis / 2 + DeepLen[IndDoiUp - 1], CryCoorY[LORj - 1] - CrySize[2 - 1] / 2 + (double)VoxSize / 2, CryCoorZ[LORi - 1] - CrySize[2 - 1] / 2 + (double)VoxSize / 2 };
-					double LORDownLD[3] = { -Dis / 2 - DeepLen[IndDoiDown - 1], CryCoorY[LORn - 1] - CrySize[2 - 1] / 2 + (double)VoxSize / 2, CryCoorZ[LORm - 1] - CrySize[2 - 1] / 2 + (double)VoxSize / 2 };
+					double LORUpLD[3] = { Dis / 2 + DeepLen[IndDoiUp - 1], CryCoorY[LORj - 1] - (double)CrySize[2 - 1] / 2 + (double)VoxSize / 2, CryCoorZ[LORi - 1] - (double)CrySize[2 - 1] / 2 + (double)VoxSize / 2 };
+					double LORDownLD[3] = { -Dis / 2 - DeepLen[IndDoiDown - 1], CryCoorY[LORn - 1] - (double)CrySize[2 - 1] / 2 + (double)VoxSize / 2, CryCoorZ[LORm - 1] - (double)CrySize[2 - 1] / 2 + (double)VoxSize / 2 };
 
 					double kx = LORDown[1 - 1] - LORUp[1 - 1];
 					double ky = LORDown[2 - 1] - LORUp[2 - 1];
@@ -505,8 +510,8 @@ int main()
 
 					if (ky == 0 && kz == 0)
 					{
-						int IndexY = ceil((LORUp[2 - 1] - (CryCoorY[1 - 1] - CrySize[2 - 1] / 2)) / CrySize[2 - 1]);
-						int IndexZ = ceil((LORUp[3 - 1] - (CryCoorZ[1 - 1] - CrySize[3 - 1] / 2)) / CrySize[3 - 1]);
+						int IndexY = ceil((LORUp[2 - 1] - (CryCoorY[1 - 1] - (double)CrySize[2 - 1] / 2)) / (double)CrySize[2 - 1]);
+						int IndexZ = ceil((LORUp[3 - 1] - (CryCoorZ[1 - 1] - (double)CrySize[3 - 1] / 2)) / (double)CrySize[3 - 1]);
 
 						int IndexVoxY = (IndexY - 1)*(double)VoxNumPerCry + 50 + 1;
 						int IndexVoxZ = (IndexZ - 1)*(double)VoxNumPerCry + 50 + 1;
@@ -514,17 +519,17 @@ int main()
 						for (int tmpXi = 1; tmpXi <= VoxNumX; tmpXi++)
 						{
 							double IndexTemp = (double)tmpXi + (IndexVoxY - 1)*VoxNumX + (IndexVoxZ - 1)*VoxNumY*VoxNumX;
-							
+
 							for (int Voxi = 1; Voxi <= VoxNumPerCry; Voxi++)
 							{
 								for (int Voxj = 1; Voxj <= VoxNumPerCry; Voxj++)
 								{
-									int Index = Index = IndexTemp + (Voxj - 1)*VoxNumX + (Voxi - 1)*VoxNumY*VoxNumX;
+									int Index = IndexTemp + (Voxj - 1)*VoxNumX + (Voxi - 1)*VoxNumY*VoxNumX;
 									double point[3] = {VoxCoorX[tmpXi-1],VoxCoorY[IndexVoxY+Voxj-1-1],VoxCoorZ[IndexVoxZ+Voxi-1-1]};
 
 									double *centerPoint=findCen(point,LORUp,kx,ky,kz,CrySize,VoxSize,Dis,OffsetUP);
 									double theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY,angleZ,Dis,lenLOR, OffsetUP);
-
+									P[Index-1] = pow(VoxSize,2) * theta*sliceEff;
 								}
 							}
 							
@@ -754,7 +759,6 @@ int main()
 
 
 
-
 							free(IndexInX);
 							free(IndexInY);
 							free(IndexInZ);
@@ -775,6 +779,7 @@ int main()
 					cudaMemcpy(P_cuda, P, VoxNum*sizeof(double), cudaMemcpyHostToDevice);
 					final_deal << <100, 100 >> >(tmp_cuda, P_cuda, coeff* weightup*weightdown, VoxNum);
 					cudaMemcpy(tmp, tmp_cuda, VoxNum*sizeof(double), cudaMemcpyDeviceToHost);
+					//printf("tmp[3708001]=%f\n",tmp[3708001]);
 					cudaFree(tmp_cuda);
 					cudaFree(P_cuda);
 				}
