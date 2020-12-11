@@ -436,9 +436,9 @@ int main()
 	const int VoxNum = VoxNumYZ*VoxNumX;
 
 	FILE *fod_nW, *fod_voxelIndex, *fod_weightValue;
-	fod_nW = fopen("G:\\cuda\\number_72_105crystal_atten_Delta3_Method4.raw","a+");
-	fod_voxelIndex = fopen("G:\\cuda\\indvoxel_72_105crystal_atten_Delta3_Method4.raw", "a+");
-	fod_weightValue = fopen("G:\\cuda\\weight_72_105crystal_atten_Delta3_Method4.raw", "a+");
+	fod_nW = fopen("G:\\cuda\\number_72_105crystal_atten_Delta3_Method4.raw","w");
+	fod_voxelIndex = fopen("G:\\cuda\\indvoxel_72_105crystal_atten_Delta3_Method4.raw", "w");
+	fod_weightValue = fopen("G:\\cuda\\weight_72_105crystal_atten_Delta3_Method4.raw", "w");
 
 	double nonzero_ratio[13] = { 0.0823, 0.1036, 0.1015, 0.0971, 0.0914, 0.0854, 0.0794, 0.0736, 0.0680, 0.0627, 0.0575, 0.0522, 0.0453 };
 	double theta = 1;
@@ -463,6 +463,7 @@ int main()
 
 	//MATLAB从1开始，为了程序所有地方的数组引用都减一，这里从1开始（有的地方减有的不减不容易检查）
 	for (int LORm = 1; LORm <= CryNumZ; LORm++)
+	//for (int LORm = 1; LORm <= 1; LORm++)
 	{
 		for (int LORn = 1; LORn <= CryNumY; LORn++)
 		{
@@ -563,6 +564,7 @@ int main()
 						int len_Y = find_value_in_matrix(Y, VoxCoorY[1 - 1] - (double)VoxSize / 2, VoxCoorY[VoxNumY - 1] + (double)VoxSize / 2,VoxNumX);
 						int len_Z = find_value_in_matrix(Z, VoxCoorZ[1 - 1] - (double)VoxSize / 2, VoxCoorZ[VoxNumZ - 1] + (double)VoxSize / 2, VoxNumX);
 						
+
 						if (len_Y > 0 && len_Z > 0)
 						{
 							double *Y_cuda, *Z_cuda;
