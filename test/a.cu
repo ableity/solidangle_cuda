@@ -9,13 +9,33 @@ by 李蕾
 #include <string>
 #include "cuda_runtime.h"  
 #include "device_launch_parameters.h"  
-//#pragma comment(lib,"cudart.lib")
-#include "G:\cuda\bitmap\common\cpu_bitmap.h"
-#include "G:\cuda\bitmap\common\book.h"
 #include <cmath>
 
+#include <stdlib.h>
+#include <crtdbg.h>
 
 using namespace std;
+
+#ifndef max
+#define max(a,b)            (((a) > (b)) ? (a) : (b))
+#endif
+
+#ifndef min
+#define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif
+
+
+
+#ifdef _DEBUG
+#define new new(_NORMAL_BLOCK, __FILE__, __LINE__)
+#endif
+
+void EnableMemLeakCheck()
+{
+	int tmpFlag = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+	tmpFlag |= _CRTDBG_LEAK_CHECK_DF;
+	_CrtSetDbgFlag(tmpFlag);
+}
 
 void showarray(double *a, int n)
 {
@@ -61,15 +81,18 @@ __global__ void initsinglevalue(double *a, int n, double value)
 		i += tid;
 	}
 }
+
+
+
 double* init_array_single_value(int num, double value)
 {
 	double *in;
 	//大数组初始化，采用cuda
 	in = (double*)malloc(num*sizeof(double));
 	double *in_cuda;
-	HANDLE_ERROR(cudaMalloc((void**)&in_cuda, num*sizeof(double)));
+	cudaMalloc((void**)&in_cuda, num*sizeof(double));
 	initsinglevalue << <100, 100 >> >(in_cuda, num, value);
-	HANDLE_ERROR(cudaMemcpy(in, in_cuda, num*sizeof(double), cudaMemcpyDeviceToHost));
+	cudaMemcpy(in, in_cuda, num*sizeof(double), cudaMemcpyDeviceToHost);
 	cudaFree(in_cuda);
 	return in;
 }
@@ -90,9 +113,9 @@ double* init_array_many_value(int num, double begin, double diff)
 	//等差数列初始化，采用cuda
 	in = (double*)malloc(num*sizeof(double));
 	double *in_cuda;
-	HANDLE_ERROR(cudaMalloc((void**)&in_cuda, num*sizeof(double)));
+	cudaMalloc((void**)&in_cuda, num*sizeof(double));
 	initmanyvalue << <1000, 1000 >> >(in_cuda, num, begin, diff);
-	HANDLE_ERROR(cudaMemcpy(in, in_cuda, num*sizeof(double), cudaMemcpyDeviceToHost));
+	cudaMemcpy(in, in_cuda, num*sizeof(double), cudaMemcpyDeviceToHost);
 	cudaFree(in_cuda);
 	return in;
 }
@@ -108,10 +131,10 @@ double sum_array(double *a, int n, int m)
 	return out;
 }
 
-double* findCen(double *point,double *LORUp, double kx,double ky, double kz,const int *CrySize, double VoxSize, double Distance,double OffsetUP)
+double* findCen(double *point, double *LORUp, double kx, double ky, double kz, const int *CrySize, double VoxSize, double Distance, double OffsetUP)
 {
 	double *centerPoint;
-	centerPoint = (double*)malloc(3*sizeof(double));
+	centerPoint = (double*)malloc(3 * sizeof(double));
 	for (int i = 0; i < 3; i++)
 	{
 		centerPoint[i] = point[i];
@@ -119,7 +142,7 @@ double* findCen(double *point,double *LORUp, double kx,double ky, double kz,cons
 
 	double YSide[2] = { LORUp[2 - 1] + (double)CrySize[2 - 1] / 2, LORUp[2 - 1] - (double)CrySize[2 - 1] / 2 };
 	double ZSide[2] = { LORUp[3 - 1] + (double)CrySize[3 - 1] / 2, LORUp[3 - 1] - (double)CrySize[3 - 1] / 2 };
-	
+
 	double tUp = (point[1 - 1] - Distance / 2 - OffsetUP) / kx;
 	double YUp = point[2 - 1] - ky * tUp;
 	double ZUp = point[3 - 1] - kz * tUp;
@@ -146,7 +169,7 @@ double* findCen(double *point,double *LORUp, double kx,double ky, double kz,cons
 	else if (ZUp > ZSide[2 - 1] && ZUp < ZSide[1 - 1] && YUp <= YSide[2 - 1])
 	{
 		double Ytmp = ky * tUp + YSide[2 - 1];
-		centerPoint[2 - 1] = point[2 - 1] + 0.5 * VoxSize - 0.5*((point[2-1]+0.5*VoxSize) - Ytmp);
+		centerPoint[2 - 1] = point[2 - 1] + 0.5 * VoxSize - 0.5*((point[2 - 1] + 0.5*VoxSize) - Ytmp);
 	}
 	else if (ZUp >= ZSide[1 - 1] && YUp > YSide[1 - 1])
 	{
@@ -185,7 +208,7 @@ double SolidAngle3D5(double *centerPoint, double *LORUp, double kx, double ky, d
 	double YUp = centerPoint[2 - 1] - ky*tUp;
 	double ZUp = centerPoint[3 - 1] - kz * tUp;
 
-	double lenPtoUp = sqrt(pow((centerPoint[1-1]-Distance/2-OffsetUP),2) + pow(centerPoint[2-1]-YUp,2) + pow(centerPoint[3-1]-ZUp,2));
+	double lenPtoUp = sqrt(pow((centerPoint[1 - 1] - Distance / 2 - OffsetUP), 2) + pow(centerPoint[2 - 1] - YUp, 2) + pow(centerPoint[3 - 1] - ZUp, 2));
 
 	double lenYSide = abs(LORUp[2 - 1] + (double)CrySize[2 - 1] / 2 - YUp);
 	double lenZSide = abs(LORUp[3 - 1] + (double)CrySize[3 - 1] / 2 - ZUp);
@@ -225,11 +248,11 @@ double SolidAngle3D5(double *centerPoint, double *LORUp, double kx, double ky, d
 		{
 			thetaY = atan(lenProY / LY);
 			thetaZ = atan(lenProZ / LZ);
-			
+
 		}
 		else if (LY1 > 0 && LZ1 <= 0)
 		{
-			thetaY = atan(RY / LY) + atan(RY / LY1); 
+			thetaY = atan(RY / LY) + atan(RY / LY1);
 			thetaZ = atan(lenProZ / LZ);
 
 			double maxLY = max(LY, LY1);
@@ -274,8 +297,9 @@ double SolidAngle3D5(double *centerPoint, double *LORUp, double kx, double ky, d
 		}
 		else
 		{
-			thetaZ = atan(lenProY / (lenLOR - tmpY - lenPtoUp));
+			thetaZ = atan(lenProZ / LZ);
 		}
+		thetaY = atan(lenProY / (lenLOR - tmpY - lenPtoUp));
 	}
 
 	double theta1 = thetaY * thetaZ / (2 * 3.14159265358979323846);
@@ -347,7 +371,7 @@ int find_value_in_matrix(double *in, double min, double max, const int n)
 //	}
 //}
 
-__global__ void find_interesect_index_and_sort(double *in1,double*in2,int n1,int n2,double min1,double max1,double min2,double max2, int *out)
+__global__ void find_interesect_index_and_sort(double *in1, double*in2, int n1, int n2, double min1, double max1, double min2, double max2, int *out)
 {
 	//找出对应的下标的交集并排序
 	//其实不用排序，下标肯定是排好序的
@@ -376,7 +400,7 @@ double mod(double a, double b)
 	double c = a / b;
 	return a - floor(c)*b;
 }
-__global__ void final_deal(double *tmp, double *P, double k,double n)
+__global__ void final_deal(double *tmp, double *P, double k, double n)
 {
 	//tmp = P*k+tmp
 	int index = blockDim.x * blockIdx.x + threadIdx.x;
@@ -396,7 +420,7 @@ int findNonZeroValue(double *tmp, int *voxelIndex, float *weightValue, int n, in
 	{
 		if (tmp[i] != 0)
 		{
-			voxelIndex[valueCount_SRM + index] = i+1;
+			voxelIndex[valueCount_SRM + index] = i + 1;
 			weightValue[valueCount_SRM + index] = tmp[i];
 			index++;
 		}
@@ -407,6 +431,11 @@ int findNonZeroValue(double *tmp, int *voxelIndex, float *weightValue, int n, in
 int main()
 {
 	//晶体数量
+
+	EnableMemLeakCheck();
+
+	//_CrtSetBreakAlloc(927662);
+
 	const int CryNumY = 72;
 	const int CryNumZ = 105;
 	//晶体尺寸
@@ -422,7 +451,7 @@ int main()
 	const double Distance = 240;
 	//X, Y, Z各个方向的体素数
 	const int VoxNumX = 240;
-	const int VoxNumY = 288; 
+	const int VoxNumY = 288;
 	const int VoxNumZ = 420;
 	//LOR总数
 	const int LORNum = CryNumY*CryNumY * CryNumZ*CryNumZ;
@@ -479,6 +508,7 @@ int main()
 	//for (int LORm = 1; LORm <= 1; LORm++)
 	{
 		for (int LORn = 1; LORn <= CryNumY; LORn++)
+		//for (int LORn = 1; LORn <= 10; LORn++)
 		{
 			LOR_index++;
 
@@ -486,23 +516,23 @@ int main()
 			double *P = init_array_single_value(VoxNum, 0);
 			double *tmp = init_array_single_value(VoxNum, 0);
 			double *Solid = init_array_single_value(VoxNum, 0);
-			
-			for (int IndDoiUp = (Start + 1) ; IndDoiUp <= 4 - OffAbandon ; IndDoiUp++)
+
+			for (int IndDoiUp = (Start + 1); IndDoiUp <= 4 - OffAbandon; IndDoiUp++)
 			{
 
 				double weightup = DeltaWeight[IndDoiUp - 1];
 				for (int IndDoiDown = (Start + 1); IndDoiDown <= 4 - OffAbandon; IndDoiDown++)
 				{
 					//printf("InDoiDown=%d\n", IndDoiDown);
-					double weightdown = DeltaWeight[IndDoiDown-1];
+					double weightdown = DeltaWeight[IndDoiDown - 1];
 					//printf("weightdown = %f\n", weightdown);
 					//system("pause");
 
-					double OffsetUP = DeepLen[IndDoiUp-1];
+					double OffsetUP = DeepLen[IndDoiUp - 1];
 					double OffsetDown = DeepLen[IndDoiDown - 1];
 
-					double LORUp[3] = { Distance/2+DeepLen[IndDoiUp-1], CryCoorY[LORj-1], CryCoorZ[LORi-1] };
-					double LORDown[3] = {-Distance/2-DeepLen[IndDoiDown-1], CryCoorY[LORn-1],CryCoorZ[LORm-1] };
+					double LORUp[3] = { Distance / 2 + DeepLen[IndDoiUp - 1], CryCoorY[LORj - 1], CryCoorZ[LORi - 1] };
+					double LORDown[3] = { -Distance / 2 - DeepLen[IndDoiDown - 1], CryCoorY[LORn - 1], CryCoorZ[LORm - 1] };
 
 					double LORUpLD[3] = { Distance / 2 + DeepLen[IndDoiUp - 1], CryCoorY[LORj - 1] - (double)CrySize[2 - 1] / 2 + (double)VoxSize / 2, CryCoorZ[LORi - 1] - (double)CrySize[2 - 1] / 2 + (double)VoxSize / 2 };
 					double LORDownLD[3] = { -Distance / 2 - DeepLen[IndDoiDown - 1], CryCoorY[LORn - 1] - (double)CrySize[2 - 1] / 2 + (double)VoxSize / 2, CryCoorZ[LORm - 1] - (double)CrySize[2 - 1] / 2 + (double)VoxSize / 2 };
@@ -511,10 +541,10 @@ int main()
 					double ky = LORDown[2 - 1] - LORUp[2 - 1];
 					double kz = LORDown[3 - 1] - LORUp[3 - 1];
 
-					double vecY[3] = {0,1,0};
-					double vecZ[3] = {0,0,1};
+					double vecY[3] = { 0, 1, 0 };
+					double vecZ[3] = { 0, 0, 1 };
 
-					double lenLOR = sqrt(kx*kx+ky*ky+kz*kz);
+					double lenLOR = sqrt(kx*kx + ky*ky + kz*kz);
 
 					double angleY = acos(abs(ky) / lenLOR);
 					double angleZ = acos(abs(kz) / lenLOR);
@@ -541,15 +571,15 @@ int main()
 								for (int Voxj = 1; Voxj <= VoxNumPerCry; Voxj++)
 								{
 									int Index = IndexTemp + (Voxj - 1)*VoxNumX + (Voxi - 1)*VoxNumY*VoxNumX;
-									double point[3] = {VoxCoorX[tmpXi-1],VoxCoorY[IndexVoxY+Voxj-1-1],VoxCoorZ[IndexVoxZ+Voxi-1-1]};
+									double point[3] = { VoxCoorX[tmpXi - 1], VoxCoorY[IndexVoxY + Voxj - 1 - 1], VoxCoorZ[IndexVoxZ + Voxi - 1 - 1] };
 
-									double *centerPoint=findCen(point,LORUp,kx,ky,kz,CrySize,VoxSize,Distance,OffsetUP);
-									double theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY,angleZ,Distance,lenLOR, OffsetUP);
+									double *centerPoint = findCen(point, LORUp, kx, ky, kz, CrySize, VoxSize, Distance, OffsetUP);
+									double theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY, angleZ, Distance, lenLOR, OffsetUP);
 									free(centerPoint);
-									P[Index-1] = pow(VoxSize,2) * theta*sliceEff;
+									P[Index - 1] = pow(VoxSize, 2) * theta*sliceEff;
 								}
 							}
-							
+
 						}
 
 
@@ -561,7 +591,7 @@ int main()
 						memcpy(X, VoxCoorX, VoxNumX*sizeof(double));
 
 						double *t, *temp_x;
-						temp_x = arrayadd(X, -LORUpLD[1-1],VoxNumX);
+						temp_x = arrayadd(X, -LORUpLD[1 - 1], VoxNumX);
 						t = arraymult(temp_x, 1 / kx, VoxNumX);
 						free(temp_x);
 
@@ -577,31 +607,31 @@ int main()
 
 						//这一步和matlab不一样，这一步后的YZ不会改变长度，而是输出len_Y、Z来表示他们的有效程度
 						//注意YZ已经改变
-						int len_Y = find_value_in_matrix(Y, VoxCoorY[1 - 1] - (double)VoxSize / 2, VoxCoorY[VoxNumY - 1] + (double)VoxSize / 2,VoxNumX);
+						int len_Y = find_value_in_matrix(Y, VoxCoorY[1 - 1] - (double)VoxSize / 2, VoxCoorY[VoxNumY - 1] + (double)VoxSize / 2, VoxNumX);
 						int len_Z = find_value_in_matrix(Z, VoxCoorZ[1 - 1] - (double)VoxSize / 2, VoxCoorZ[VoxNumZ - 1] + (double)VoxSize / 2, VoxNumX);
-						
+
 
 						if (len_Y > 0 && len_Z > 0)
 						{
 							double *Y_cuda, *Z_cuda;
-							int *YZindex_cuda,*YZindex;
+							int *YZindex_cuda, *YZindex;
 							cudaMalloc((void**)&Y_cuda, len_Y*sizeof(double));
 							cudaMalloc((void**)&Z_cuda, len_Z*sizeof(double));
 							cudaMalloc((void**)&YZindex_cuda, len_Z*sizeof(int));
-							cudaMemcpy(Y_cuda, Y, len_Y*sizeof(double),cudaMemcpyHostToDevice);
+							cudaMemcpy(Y_cuda, Y, len_Y*sizeof(double), cudaMemcpyHostToDevice);
 							cudaMemcpy(Z_cuda, Z, len_Z*sizeof(double), cudaMemcpyHostToDevice);
 							find_interesect_index_and_sort << <10, 24 >> >(Y_cuda, Z_cuda, len_Y, len_Z, \
-								            VoxCoorY[1 - 1] - (double)VoxSize / 2, VoxCoorY[VoxNumY - 1] + (double)VoxSize / 2, \
-											VoxCoorZ[1 - 1] - (double)VoxSize / 2, VoxCoorZ[VoxNumZ - 1] + (double)VoxSize / 2, YZindex_cuda);
+								VoxCoorY[1 - 1] - (double)VoxSize / 2, VoxCoorY[VoxNumY - 1] + (double)VoxSize / 2, \
+								VoxCoorZ[1 - 1] - (double)VoxSize / 2, VoxCoorZ[VoxNumZ - 1] + (double)VoxSize / 2, YZindex_cuda);
 							YZindex = (int *)malloc(len_Z*sizeof(int));
 							//YZindex和matlab版不同，matlab版的是存的index，这里是index位置为1
 							cudaMemcpy(YZindex, YZindex_cuda, len_Z * sizeof(int), cudaMemcpyDeviceToHost);
-							
+
 							cudaFree(Y_cuda);
 							cudaFree(Z_cuda);
 							cudaFree(YZindex_cuda);
 
-							int len_X=0;
+							int len_X = 0;
 							//下面循环是为了完成
 							//X = X(YZIndex);
 							//Y = Y(YZIndex);
@@ -656,6 +686,7 @@ int main()
 											double point[3] = { VoxCoorX[slicei - 1], VoxCoorY[IndexInY[slicei - 1] + tmpi - 1 - 1], VoxCoorZ[IndexInZ[slicei - 1] + tmpj - 1 - 1] };
 											double *centerPoint = findCen(point, LORUp, kx, ky, kz, CrySize, VoxSize, Distance, OffsetUP);
 											theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY, angleZ, Distance, lenLOR, OffsetUP);
+											free(centerPoint);
 											if ((tmpi != 1 || tmpi != VoxNumPerCry + 1) && (tmpj != 1 || tmpj != VoxNumPerCry + 1))
 											{
 												P[IndexTmp - 1] = theta;
@@ -731,6 +762,7 @@ int main()
 											double point[3] = { VoxCoorX[slicei - 1], VoxCoorY[IndexInY[slicei - 1] + tmpi - 1 - 1], VoxCoorZ[IndexInZ[slicei - 1] + tmpj - 1 - 1] };
 											double *centerPoint = findCen(point, LORUp, kx, ky, kz, CrySize, VoxSize, Distance, OffsetUP);
 											theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY, angleZ, Distance, lenLOR, OffsetUP);
+											free(centerPoint);
 											if (tmpi != 1 || tmpj != VoxNumPerCry + 1)
 											{
 												P[IndexTmp - 1] = theta;
@@ -752,9 +784,10 @@ int main()
 										for (int tmpj = 1; tmpj <= VoxNumPerCry; tmpj++)
 										{
 											int IndexTmp = Index[slicei - 1] + (tmpj - 1)*VoxNumX + (tmpi - 1)*VoxNumX*VoxNumY;
-											double point[3] = { VoxCoorX[slicei-1],VoxCoorY[IndexInY[slicei-1] + tmpi - 1-1],VoxCoorZ[IndexInZ[slicei-1] + tmpj - 1-1] };
+											double point[3] = { VoxCoorX[slicei - 1], VoxCoorY[IndexInY[slicei - 1] + tmpi - 1 - 1], VoxCoorZ[IndexInZ[slicei - 1] + tmpj - 1 - 1] };
 											double *centerPoint = findCen(point, LORUp, kx, ky, kz, CrySize, VoxSize, Distance, OffsetUP);
 											theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY, angleZ, Distance, lenLOR, OffsetUP);
+											free(centerPoint);
 											//printf("IndexTmp=%d\n", IndexTmp);
 											//printf("slicei=%d\n", slicei);
 											//printf("tmpi=%d\n", tmpi);
@@ -771,7 +804,7 @@ int main()
 											//printf("OffsetUP=%f\n", OffsetUP);
 											//printf("theta = %f\n", theta);
 											//system("pause");
-											P[IndexTmp-1] = pow(VoxSize, 2) * theta*sliceEff;
+											P[IndexTmp - 1] = pow(VoxSize, 2) * theta*sliceEff;
 										}
 									}
 							}
@@ -809,7 +842,7 @@ int main()
 			//******************************************************************************//
 			//统计当前LOR 对应的有效数据个数
 			int nW = 0;
-			nW = findNonZeroValue(tmp,indvoxel,weight,VoxNum, valueCount_SRM);
+			nW = findNonZeroValue(tmp, indvoxel, weight, VoxNum, valueCount_SRM);
 			printf("nW = %d\n", nW);
 			valueCount_SRM += nW;
 			number[LOR_index - 1] = nW;
@@ -822,6 +855,7 @@ int main()
 
 		}
 	}
+
 
 	cout << "系统矩阵有效数据总个数：" << valueCount_SRM << endl;
 	//保存系统矩阵
@@ -836,8 +870,15 @@ int main()
 	fwrite(weight, sizeof(float), valueCount_SRM, fid);
 	fclose(fid);
 
-
-	system("pause");
+	free(number);
+	free(indvoxel);
+	free(weight);
+	free(norm);
+	free(CryCoorY);
+	free(CryCoorZ);
+	free(VoxCoorX);
+	free(VoxCoorY);
+	free(VoxCoorZ);
 	return 0;
 
 }
