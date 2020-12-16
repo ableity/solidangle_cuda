@@ -256,7 +256,7 @@ float SolidAngle3D5(float *centerPoint, float *LORUp, float kx, float ky, float 
 			thetaZ = atan(lenProZ / LZ);
 
 			float maxLY = max(LY, LY1);
-			float thetaY = min(atan(lenProY / maxLY), thetaY);
+			thetaY = min(atan(lenProY / maxLY), thetaY);
 		}
 		else if (LY1 <= 0 && LZ1 > 0)
 		{
@@ -504,11 +504,11 @@ int main()
 	int LOR_index = 0;
 
 	//MATLAB从1开始，为了程序所有地方的数组引用都减一，这里从1开始（有的地方减有的不减不容易检查）
-	for (int LORm = 1; LORm <= CryNumZ; LORm++)
-	//for (int LORm = 2; LORm <= 2; LORm++)
+	//for (int LORm = 1; LORm <= CryNumZ; LORm++)
+	for (int LORm = 9; LORm <= 9; LORm++)
 	{
-		for (int LORn = 1; LORn <= CryNumY; LORn++)
-		//for (int LORn = 68; LORn <= 68; LORn++)
+		//for (int LORn = 1; LORn <= CryNumY; LORn++)
+		for (int LORn = 40; LORn <= 40; LORn++)
 		{
 			LOR_index++;
 
@@ -652,7 +652,7 @@ int main()
 							len_Z = len_X;
 							int *IndexInX, *IndexInY, *IndexInZ;
 							float *VarInY, *VarInZ;
-							float	*Index;
+							int	*Index;
 
 							IndexInX = (int *)malloc(len_X*sizeof(int));
 							IndexInY = (int *)malloc(len_Y*sizeof(int));
@@ -661,7 +661,7 @@ int main()
 							VarInY = (float*)malloc(len_Y*sizeof(float));
 							VarInZ = (float*)malloc(len_Z*sizeof(float));
 
-							Index = (float*)malloc(len_Z*sizeof(float));
+							Index = (int*)malloc(len_Z*sizeof(int));
 							for (int i = 0; i < len_X; i++)
 							{
 								float IndexInX_temp = (X[i] - (VoxCoorX[1 - 1] - VoxSize / 2)) / VoxSize;
@@ -721,7 +721,7 @@ int main()
 								//	printf("VoxCoorY[1 - 1]=%f\n", VoxCoorY[1 - 1]);
 								//}
 
-								Index[i] = IndexInX[i] + (IndexInY[i] - 1)*(float)VoxNumX + (IndexInZ[i] - 1)*(float)VoxNumX*(float)VoxNumY;
+								Index[i] = IndexInX[i] + (IndexInY[i] - 1)*VoxNumX + (IndexInZ[i] - 1)*VoxNumX*VoxNumY;
 							}
 							
 
@@ -737,23 +737,27 @@ int main()
 								//	printf("mod(Z[slicei - 1], VoxSize)=%f\n", mod(Y[slicei - 1], VoxSize));
 
 								//}
-								if (VarInY[slicei - 1] < 1 && VarInZ[slicei - 1] < 1 && abs(VarInY[slicei - 1] - 1)>0.00005 && VarInZ[slicei - 1] - 1<0.00005)
+								if (VarInY[slicei - 1] < 1 && VarInZ[slicei - 1] < 1 && abs(VarInY[slicei - 1] - 1)>0.00005 && abs(VarInZ[slicei - 1] - 1)>0.00005)
 								{
 									for (int tmpi = 1; tmpi <= VoxNumPerCry + 1; tmpi++)
 									{
 										for (int tmpj = 1; tmpj <= VoxNumPerCry + 1; tmpj++)
 										{
 											int IndexTmp = Index[slicei - 1] + (tmpj - 1)*VoxNumX + (tmpi - 1)*VoxNumX*VoxNumY;
-											//if (IndexTmp == 179369)
-											//{
-											//	printf("1 error\n");
-											//	printf("IndDoiUp=%d\n", IndDoiUp);
-											//	printf("IndDoiDown=%d\n", IndDoiDown);
-											//	printf("VarInZ[slicei - 1]=%.20f\n", VarInZ[slicei - 1]);
-											//	printf("VarInY[slicei - 1]=%.20f\n", VarInY[slicei - 1]);
-											//	printf("Y[slicei-1]=%f\n", Y[slicei - 1]);
-											//	printf("mod(Y[slicei - 1], VoxSize)=%f\n", mod(Y[slicei - 1], VoxSize));
-											//}
+											if (IndexTmp == 1541144)
+											{
+												printf("1 error\n");
+												printf("slicei=%d\n", slicei);
+												printf("IndDoiUp=%d\n", IndDoiUp);
+												printf("IndDoiDown=%d\n", IndDoiDown);
+												printf("VarInZ[slicei - 1]=%.20f\n", VarInZ[slicei - 1]);
+												printf("VarInY[slicei - 1]=%.20f\n", VarInY[slicei - 1]);
+												printf("Y[slicei-1]=%f\n", Y[slicei - 1]);
+												printf("mod(Y[slicei - 1], VoxSize)=%f\n", mod(Y[slicei - 1], VoxSize));
+												printf("Index[slicei - 1-1]=%f\n", Index[slicei - 1 - 1]);
+												printf("Index[slicei - 1]=%f\n", Index[slicei - 1]);
+												printf("Index[slicei - 1+1]=%f\n", Index[slicei - 1 + 1]);
+											}
 											float point[3] = { VoxCoorX[slicei - 1], VoxCoorY[IndexInY[slicei - 1] + tmpi - 1 - 1], VoxCoorZ[IndexInZ[slicei - 1] + tmpj - 1 - 1] };
 											float *centerPoint = findCen(point, LORUp, kx, ky, kz, CrySize, VoxSize, Distance, OffsetUP);
 											theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY, angleZ, Distance, lenLOR, OffsetUP);
@@ -804,19 +808,19 @@ int main()
 										for (int tmpj = 1; tmpj <= VoxNumPerCry + 1; tmpj++)
 										{
 											int IndexTmp = Index[slicei - 1] + (tmpj - 1)*VoxNumX + (tmpi - 1)*VoxNumX*VoxNumY;
-											//if (IndexTmp == 179369)
-											//{
-											//	printf("2 error\n");
-											//	printf("VarInZ[slicei - 1]=%.20f\n", VarInZ[slicei - 1]);
-											//	printf("VarInY[slicei - 1]=%.20f\n", VarInY[slicei - 1]);
-											//	printf("IndDoiUp=%d\n", IndDoiUp);
-											//	printf("IndDoiDown=%d\n", IndDoiDown);
-											//	printf("slicei=%d\n", slicei);
-											//	printf("VarInZ[slicei - 1]=%.20f\n", VarInZ[slicei - 1]);
-											//	printf("VarInY[slicei - 1]=%.20f\n", VarInY[slicei - 1]);
-											//	printf("Y[slicei-1]=%f\n", Y[slicei - 1]);
-											//	printf("mod(Y[slicei - 1], VoxSize)=%f\n", mod(Y[slicei - 1], VoxSize));
-											//}
+											if (IndexTmp == 1541144)
+											{
+												printf("2 error\n");
+												printf("VarInZ[slicei - 1]=%.20f\n", VarInZ[slicei - 1]);
+												printf("VarInY[slicei - 1]=%.20f\n", VarInY[slicei - 1]);
+												printf("IndDoiUp=%d\n", IndDoiUp);
+												printf("IndDoiDown=%d\n", IndDoiDown);
+												printf("slicei=%d\n", slicei);
+												printf("VarInZ[slicei - 1]=%.20f\n", VarInZ[slicei - 1]);
+												printf("VarInY[slicei - 1]=%.20f\n", VarInY[slicei - 1]);
+												printf("Y[slicei-1]=%f\n", Y[slicei - 1]);
+												printf("mod(Y[slicei - 1], VoxSize)=%f\n", mod(Y[slicei - 1], VoxSize));
+											}
 											float point[3] = { VoxCoorX[slicei - 1], VoxCoorY[IndexInY[slicei - 1] + tmpi - 1 - 1], VoxCoorZ[IndexInZ[slicei - 1] + tmpj - 1 - 1] };
 											float *centerPoint = findCen(point, LORUp, kx, ky, kz, CrySize, VoxSize, Distance, OffsetUP);
 											theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY, angleZ, Distance, lenLOR, OffsetUP);
@@ -844,9 +848,19 @@ int main()
 										{
 
 											int IndexTmp = Index[slicei - 1] + (tmpj - 1)*VoxNumX + (tmpi - 1)*VoxNumX*VoxNumY;
-											if (IndexTmp == 179369)
+											if (IndexTmp == 1541144)
 											{
 												printf("3 error\n");
+												printf("slicei=%d\n", slicei);
+												printf("IndDoiUp=%d\n", IndDoiUp);
+												printf("IndDoiDown=%d\n", IndDoiDown);
+												printf("VarInZ[slicei - 1]=%.20f\n", VarInZ[slicei - 1]);
+												printf("VarInY[slicei - 1]=%.20f\n", VarInY[slicei - 1]);
+												printf("Y[slicei-1]=%f\n", Y[slicei - 1]);
+												printf("mod(Y[slicei - 1], VoxSize)=%f\n", mod(Y[slicei - 1], VoxSize));
+												printf("Index[slicei - 1-1]=%d\n", Index[slicei - 1 - 1]);
+												printf("Index[slicei - 1]=%d\n", Index[slicei - 1]);
+												printf("Index[slicei - 1+1]=%d\n", Index[slicei - 1 + 1]);
 											}
 											float point[3] = { VoxCoorX[slicei - 1], VoxCoorY[IndexInY[slicei - 1] + tmpi - 1 - 1], VoxCoorZ[IndexInZ[slicei - 1] + tmpj - 1 - 1] };
 											float *centerPoint = findCen(point, LORUp, kx, ky, kz, CrySize, VoxSize, Distance, OffsetUP);
@@ -873,22 +887,22 @@ int main()
 										for (int tmpj = 1; tmpj <= VoxNumPerCry; tmpj++)
 										{
 											int IndexTmp = Index[slicei - 1] + (tmpj - 1)*VoxNumX + (tmpi - 1)*VoxNumX*VoxNumY;
-											//if (IndexTmp == 179369)
-											//{
-											//	
-											//	printf("4 error\n");
-											//	printf("IndDoiUp=%d\n", IndDoiUp);
-											//	printf("IndDoiDown=%d\n", IndDoiDown);
-											//	printf("slicei=%d\n", slicei);
-											//	printf("VarInZ[slicei - 1]=%.20f\n", VarInZ[slicei - 1]);
-											//	printf("VarInY[slicei - 1]=%.20f\n", VarInY[slicei - 1]);
-											//	printf("Y[slicei-1]=%f\n", Y[slicei - 1]);
-											//	printf("mod(Y[slicei - 1], VoxSize)=%f\n", mod(Y[slicei - 1], VoxSize));
-											//	printf("Index[slicei - 1-1]=%f\n", Index[slicei - 1-1]);
-											//	printf("Index[slicei - 1]=%f\n", Index[slicei - 1]);
-											//	printf("Index[slicei - 1+1]=%f\n", Index[slicei - 1+1]);
+											if (IndexTmp == 1541144)
+											{
+												
+												printf("4 error\n");
+												printf("IndDoiUp=%d\n", IndDoiUp);
+												printf("IndDoiDown=%d\n", IndDoiDown);
+												printf("slicei=%d\n", slicei);
+												printf("VarInZ[slicei - 1]=%.20f\n", VarInZ[slicei - 1]);
+												printf("VarInY[slicei - 1]=%.20f\n", VarInY[slicei - 1]);
+												printf("Y[slicei-1]=%f\n", Y[slicei - 1]);
+												printf("mod(Y[slicei - 1], VoxSize)=%f\n", mod(Y[slicei - 1], VoxSize));
+												printf("Index[slicei - 1-1]=%f\n", Index[slicei - 1-1]);
+												printf("Index[slicei - 1]=%f\n", Index[slicei - 1]);
+												printf("Index[slicei - 1+1]=%f\n", Index[slicei - 1+1]);
 
-											//}
+											}
 											float point[3] = { VoxCoorX[slicei - 1], VoxCoorY[IndexInY[slicei - 1] + tmpi - 1 - 1], VoxCoorZ[IndexInZ[slicei - 1] + tmpj - 1 - 1] };
 											float *centerPoint = findCen(point, LORUp, kx, ky, kz, CrySize, VoxSize, Distance, OffsetUP);
 											theta = SolidAngle3D5(centerPoint, LORUp, kx, ky, kz, CrySize, angleY, angleZ, Distance, lenLOR, OffsetUP);
